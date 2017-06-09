@@ -30,9 +30,9 @@ tf.app.flags.DEFINE_integer('NUM_EXAMPLES_PER_EPOCH', 50000,
 # Basic parameters describing the data set.
 tf.app.flags.DEFINE_integer('NUM_CLASSES', 27,
                             """Number of classes in training/evaluation data.""")
-tf.app.flags.DEFINE_integer('IMAGE_HEIGHT', 128,
+tf.app.flags.DEFINE_integer('IMAGE_HEIGHT', 171,
                             """IMAGE HEIGHT""")
-tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 128,
+tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 240,
                             """IMAGE WIDTH""")
 tf.app.flags.DEFINE_integer('IMAGE_DEPTH', 1,
                             """IMAGE DEPTH""")
@@ -52,7 +52,7 @@ def train():
 
         with tf.variable_scope('Input') as scope:
             # Add queue runner to the graph
-            filename_queue = tf.train.string_input_producer(['oxide_tilts_GP_train.tfrecords'],
+            filename_queue = tf.train.string_input_producer(['oxide_tilts_GP_train_171x240.tfrecords'],
                                                             num_epochs=FLAGS.num_epochs)
             # pass the filename_queue to the input class to decode
             dset = inputs.Dataset_TFRecords(filename_queue,FLAGS)

@@ -34,9 +34,9 @@ tf.app.flags.DEFINE_integer('num_epochs', 1000000,
 # Basic parameters describing the data set.
 tf.app.flags.DEFINE_integer('NUM_CLASSES', 27,
                             """Number of classes in training/evaluation data.""")
-tf.app.flags.DEFINE_integer('IMAGE_HEIGHT', 128,
+tf.app.flags.DEFINE_integer('IMAGE_HEIGHT', 171,
                             """IMAGE HEIGHT""")
-tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 128,
+tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 240,
                             """IMAGE WIDTH""")
 tf.app.flags.DEFINE_integer('IMAGE_DEPTH', 1,
                             """IMAGE DEPTH""")
@@ -107,14 +107,14 @@ def evaluate():
   with tf.Graph().as_default() as g:
       with tf.variable_scope('Input_test') as scope:
           # Add queue runner to the graph
-          filename_queue = tf.train.string_input_producer(['oxide_tilts_GP_test.tfrecords'])
+          filename_queue = tf.train.string_input_producer(['oxide_tilts_GP_test_171x240.tfrecords'])
                                                           # num_epochs=FLAGS.num_epochs)
           # pass the filename_queue to the input class to decode
           dset = inputs.Dataset_TFRecords(filename_queue, FLAGS)
           image, label = dset.decode_image_label()
 
           # distort images and generate examples batch
-          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.05, noise_max=0.2)
+          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.05, noise_max=0.2, glimpses=True)
 
       # Build a Graph that computes the logits predictions from the inference model.
       logits = network.inference(images, FLAGS)

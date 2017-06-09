@@ -135,11 +135,11 @@ def inference(images, FLAGS):
     # conv1
     with tf.variable_scope('conv1') as scope:
         kernel = _variable_with_weight_decay('weights',
-                                             shape=[5, 5, 1, 64],
+                                             shape=[2, 2, 1, 96],
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='VALID')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
+        biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.0))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv1 = tf.nn.relu(pre_activation, name=scope.name)
         _activation_summary(conv1)
@@ -160,11 +160,11 @@ def inference(images, FLAGS):
     # conv2
     with tf.variable_scope('conv2') as scope:
         kernel = _variable_with_weight_decay('weights',
-                                             shape=[5, 5, 64, 64],
+                                             shape=[2, 2, 96, 96],
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='VALID')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
+        biases = _variable_on_cpu('biases', [96], tf.constant_initializer(0.1))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv2 = tf.nn.relu(pre_activation, name=scope.name)
         _activation_summary(conv2)
@@ -214,9 +214,9 @@ def inference(images, FLAGS):
 
     # local4
     with tf.variable_scope('RELU4') as scope:
-        weights = _variable_with_weight_decay('weights', shape=[1024, 512],
+        weights = _variable_with_weight_decay('weights', shape=[1024, 1024],
                                               stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
+        biases = _variable_on_cpu('biases', [1024], tf.constant_initializer(0.1))
         RELU4 = tf.nn.relu(tf.matmul(RELU3_dropout, weights) + biases, name=scope.name)
         _activation_summary(RELU4)
 
@@ -225,8 +225,8 @@ def inference(images, FLAGS):
     # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
     # and performs the softmax internally for efficiency.
     with tf.variable_scope('softmax_linear') as scope:
-        weights = _variable_with_weight_decay('weights', [512, FLAGS.NUM_CLASSES],
-                                              stddev=1/512.0, wd=0.0)
+        weights = _variable_with_weight_decay('weights', [1024, FLAGS.NUM_CLASSES],
+                                              stddev=1/1024.0, wd=0.0)
         biases = _variable_on_cpu('biases', [FLAGS.NUM_CLASSES],
                                   tf.constant_initializer(0.0))
         softmax_linear = tf.add(tf.matmul(RELU4, weights), biases, name=scope.name)

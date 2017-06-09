@@ -175,92 +175,126 @@ class Dataset_Constant(object):
 #         return images, labels
 
 class Dataset_TFRecords(object):
+    """
+    Handles training and evaluation data operations.  \n
+    Data is read from a TFRecords filename queue.
+    """
+    def __init__(self, filename_queue, flags):
+        self.filename_queue = filename_queue
+        self.flags = flags
+
+    def _distort(self, image, noise_min, noise_max):
         """
-        Handles training and evaluation data operations.  \n
-        Data is read from a TFRecords filename queue.
+        Performs distortions on an image. Currently, only noise and flips are used.
+        Args:
+            image: 3D Tensor
+
+        Returns:
+            distorted_image: 3D Tensor
         """
-        def __init__(self, filename_queue, flags):
-            self.filename_queue = filename_queue
-            self.flags = flags
+        # Apply random noising and image flipping
+        alpha = tf.random_uniform([1], minval=noise_min, maxval=noise_max)
+        image = tf.cast(image,tf.float32)
+        noise = tf.random_uniform(image.shape, dtype=tf.float32)
+        noised_image = (1 - alpha[0]) * image + alpha[0] * noise
 
-        def _distort(self, image, noise_min, noise_max):
-            """
-            Performs distortions on an image. Currently, only noise and flips are used.
-            Args:
-                image: 3D Tensor
+        # distorted_image = tf.image.random_flip_left_right(noised_image)
+        # distorted_image = tf.image.random_flip_up_down(distorted_image)
+        # distorted_image = tf.image.per_image_standardization(distorted_image)
+        # return distorted_image
+        return noised_image
 
-            Returns:
-                distorted_image: 3D Tensor
-            """
-            # Apply random noising and image flipping
-            alpha = tf.random_uniform([1], minval=noise_min, maxval=noise_max)
-            noise = tf.random_uniform(image.shape, dtype=tf.float32)
-            noised_image = (1 - alpha[0]) * image + alpha[0] * noise
-            distorted_image = tf.image.random_flip_left_right(noised_image)
-            distorted_image = tf.image.random_flip_up_down(distorted_image)
-            distorted_image = tf.image.per_image_standardization(distorted_image)
-            return distorted_image
+    def _getGlimpses(self, batch_images):
+        """
+        Get bounded glimpses from images, corresponding to ~ 2x1 supercell
+        :param batch_images: batch of training images
+        :return: batch of glimpses
+        """
+        # set size of glimpses
+        y_size, x_size = 90, 120
+        size = tf.constant(value=[y_size,x_size],dtype=tf.int32)
 
-        def decode_image_label(self):
-            """
-            Returns: image, label decoded from tfrecords
-            """
-            reader = tf.TFRecordReader()
-            key, serialized_example  = reader.read(self.filename_queue)
+        # generate random window centers for the batch with overlap with input
+        y_low, y_high = int(y_size / 2), int(self.flags.IMAGE_HEIGHT - y_size / 2)
+        x_low, x_high = int(x_size / 2), int(self.flags.IMAGE_WIDTH  - x_size / 2)
+        cen_y = tf.random_uniform([self.flags.batch_size], minval = y_low, maxval=y_high)
+        cen_x = tf.random_uniform([self.flags.batch_size], minval=x_low, maxval=x_high)
+        offsets = tf.stack([cen_y,cen_x],axis=1)
 
-            # get raw image bytes and label string
-            features = tf.parse_single_example(
-                serialized_example,
-                features={
-                    'image_raw': tf.FixedLenFeature([], tf.string),
-                    'label': tf.FixedLenFeature([], tf.string),
-                })
-            # decode from byte and reshape label and image
-            label = tf.decode_raw(features['label'], tf.int64)
-            label.set_shape(self.flags.NUM_CLASSES)
-            image = tf.decode_raw(features['image_raw'], tf.float32)
-            image.set_shape([self.flags.IMAGE_HEIGHT * self.flags.IMAGE_WIDTH * self.flags.IMAGE_DEPTH])
-            image = tf.reshape(image, [self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH, self.flags.IMAGE_DEPTH])
+        # extract glimpses
+        glimpse_batch = tf.image.extract_glimpse(batch_images,size,offsets,centered=False,
+                                                 normalized=False,uniform_noise=False,name='batch_glimpses')
+        print(glimpse_batch.shape)
 
-            return image, label
+        return glimpse_batch
 
-        def train_images_labels_batch(self, image_raw, label, noise_min = 0., noise_max=0.3):
-            """
-            Returns: batch of images and labels to train on.
-            """
+    def decode_image_label(self):
+        """
+        Returns: image, label decoded from tfrecords
+        """
+        reader = tf.TFRecordReader()
+        key, serialized_example  = reader.read(self.filename_queue)
 
-            # Apply image distortions
-            image = self._distort(image_raw, noise_min, noise_max)
+        # get raw image bytes and label string
+        features = tf.parse_single_example(
+            serialized_example,
+            features={
+                'image_raw': tf.FixedLenFeature([], tf.string),
+                'label': tf.FixedLenFeature([], tf.string),
+            })
+        # decode from byte and reshape label and image
+        label = tf.decode_raw(features['label'], tf.int64)
+        label.set_shape(self.flags.NUM_CLASSES)
+        image = tf.decode_raw(features['image_raw'], tf.float64)
+        image.set_shape([self.flags.IMAGE_HEIGHT * self.flags.IMAGE_WIDTH * self.flags.IMAGE_DEPTH])
+        image = tf.reshape(image, [self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH, self.flags.IMAGE_DEPTH])
+        return image, label
 
-            # Generate batch
-            images, labels = tf.train.shuffle_batch([image, label],
-                                                    batch_size=self.flags.batch_size,
-                                                    capacity=50000,
-                                                    num_threads=16,
-                                                    min_after_dequeue=1000,
-                                                    name='shuffle_batch')
+    def train_images_labels_batch(self, image_raw, label, noise_min = 0., noise_max=0.3, glimpses=True):
+        """
+        Returns: batch of images and labels to train on.
+        """
 
-            # Display the training images in the visualizer.
-            # display_images = tf.image.grayscale_to_rgb(images)
-            tf.summary.image('Train_Images', images, max_outputs=6)
-            return images, labels
+        # Apply image distortions
+        image = self._distort(image_raw, noise_min, noise_max)
 
-        def eval_images_labels_batch(self, image_raw, label, noise_min=0., noise_max=0.3):
-            """
-            Returns: batch of images and labels to test on.
-            """
+        # Generate batch
+        images, labels = tf.train.shuffle_batch([image, label],
+                                                batch_size=self.flags.batch_size,
+                                                capacity=100000,
+                                                num_threads=32,
+                                                min_after_dequeue=10000,
+                                                # shapes=image.shape,
+                                                name='shuffle_batch')
+        # extract glimpses from training batch
+        if glimpses:
+            images = self._getGlimpses(images)
 
-            # Apply image distortions
-            image = self._distort(image_raw, noise_min, noise_max)
+        # Display the training images in the visualizer.
+        # display_images = tf.image.grayscale_to_rgb(images)
+        tf.summary.image('Train_Images', images, max_outputs=6)
+        return images, labels
 
-            # Generate batch
-            images, labels = tf.train.shuffle_batch([image, label],
-                                                    batch_size=self.flags.batch_size,
-                                                    capacity=50000,
-                                                    num_threads=16,
-                                                    min_after_dequeue=1000,
-                                                    name='shuffle_batch')
+    def eval_images_labels_batch(self, image_raw, label, noise_min=0., noise_max=0.3, glimpses=True):
+        """
+        Returns: batch of images and labels to test on.
+        """
 
-            # Display the training images in the visualizer.
-            tf.summary.image('Test_Images', images, max_outputs=10)
-            return images, labels
+        # Apply image distortions
+        image = self._distort(image_raw, noise_min, noise_max)
+
+        # Generate batch
+        images, labels = tf.train.shuffle_batch([image, label],
+                                                batch_size=self.flags.batch_size,
+                                                capacity=100000 + 3* self.flags.batch_size,
+                                                num_threads=16,
+                                                min_after_dequeue=10000,
+                                                name='shuffle_batch')
+
+        # extract glimpses from evaluation batch
+        if glimpses:
+            images = self._getGlimpses(images)
+
+        # Display the training images in the visualizer.
+        tf.summary.image('Test_Images', images, max_outputs=10)
+        return images, labels
