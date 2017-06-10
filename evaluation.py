@@ -114,7 +114,7 @@ def evaluate():
           image, label = dset.decode_image_label()
 
           # distort images and generate examples batch
-          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.05, noise_max=0.2, glimpses=True)
+          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.05, noise_max=0.1, glimpses=True)
 
       # Build a Graph that computes the logits predictions from the inference model.
       logits = network.inference(images, FLAGS)

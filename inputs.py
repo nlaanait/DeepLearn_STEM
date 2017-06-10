@@ -261,8 +261,8 @@ class Dataset_TFRecords(object):
         # Generate batch
         images, labels = tf.train.shuffle_batch([image, label],
                                                 batch_size=self.flags.batch_size,
-                                                capacity=100000,
-                                                num_threads=32,
+                                                capacity=50000,
+                                                num_threads=16,
                                                 min_after_dequeue=10000,
                                                 # shapes=image.shape,
                                                 name='shuffle_batch')
@@ -286,7 +286,7 @@ class Dataset_TFRecords(object):
         # Generate batch
         images, labels = tf.train.shuffle_batch([image, label],
                                                 batch_size=self.flags.batch_size,
-                                                capacity=100000 + 3* self.flags.batch_size,
+                                                capacity=50000,
                                                 num_threads=16,
                                                 min_after_dequeue=10000,
                                                 name='shuffle_batch')
