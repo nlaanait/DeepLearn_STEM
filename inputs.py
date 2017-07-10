@@ -200,31 +200,41 @@ class Dataset_TFRecords(object):
 
         # distorted_image = tf.image.random_flip_left_right(noised_image)
         # distorted_image = tf.image.random_flip_up_down(distorted_image)
-        # distorted_image = tf.image.per_image_standardization(distorted_image)
-        # return distorted_image
-        return noised_image
+        distorted_image = tf.image.per_image_standardization(noised_image)
+        return distorted_image
 
-    def _getGlimpses(self, batch_images):
+    def _getGlimpses(self, batch_images, random=False):
         """
         Get bounded glimpses from images, corresponding to ~ 2x1 supercell
         :param batch_images: batch of training images
         :return: batch of glimpses
         """
         # set size of glimpses
-        y_size, x_size = 90, 120
-        size = tf.constant(value=[y_size,x_size],dtype=tf.int32)
+        y_size, x_size = self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH
+        crop_y_size, crop_x_size  = self.flags.CROP_HEIGHT,self.flags.CROP_WIDTH
+        size = tf.constant(value=[crop_y_size, crop_x_size],
+                           dtype=tf.int32)
 
-        # generate random window centers for the batch with overlap with input
-        y_low, y_high = int(y_size / 2), int(self.flags.IMAGE_HEIGHT - y_size / 2)
-        x_low, x_high = int(x_size / 2), int(self.flags.IMAGE_WIDTH  - x_size / 2)
-        cen_y = tf.random_uniform([self.flags.batch_size], minval = y_low, maxval=y_high)
-        cen_x = tf.random_uniform([self.flags.batch_size], minval=x_low, maxval=x_high)
-        offsets = tf.stack([cen_y,cen_x],axis=1)
+        if random:
+            # generate random window centers for the batch with overlap with input
+            y_low, y_high = int(crop_y_size/2), int(y_size - crop_y_size/2)
+            x_low, x_high = int(crop_x_size/2), int(x_size - crop_x_size/2)
+            cen_y = tf.random_uniform([self.flags.batch_size], minval = y_low, maxval=y_high)
+            cen_x = tf.random_uniform([self.flags.batch_size], minval=x_low, maxval=x_high)
+            offsets = tf.stack([cen_y,cen_x],axis=1)
+        else:
+            # fixed crop
+            cen_y = np.ones((self.flags.batch_size,),dtype=np.int32)*self.flags.IMAGE_HEIGHT/4
+            cen_x = np.ones((self.flags.batch_size,), dtype=np.int32) * self.flags.IMAGE_WIDTH/4
+            offsets = np.vstack([cen_y,cen_x]).T
+            offsets = tf.constant(value=offsets, dtype=tf.float32)
 
         # extract glimpses
         glimpse_batch = tf.image.extract_glimpse(batch_images,size,offsets,centered=False,
-                                                 normalized=False,uniform_noise=False,name='batch_glimpses')
-        print(glimpse_batch.shape)
+                                                 normalized=False,
+                                                 uniform_noise=False,
+                                                 name='batch_glimpses')
+        # print(glimpse_batch.shape)
 
         return glimpse_batch
 
@@ -245,12 +255,13 @@ class Dataset_TFRecords(object):
         # decode from byte and reshape label and image
         label = tf.decode_raw(features['label'], tf.int64)
         label.set_shape(self.flags.NUM_CLASSES)
-        image = tf.decode_raw(features['image_raw'], tf.float64)
+        image = tf.decode_raw(features['image_raw'], tf.float32)
         image.set_shape([self.flags.IMAGE_HEIGHT * self.flags.IMAGE_WIDTH * self.flags.IMAGE_DEPTH])
         image = tf.reshape(image, [self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH, self.flags.IMAGE_DEPTH])
         return image, label
 
-    def train_images_labels_batch(self, image_raw, label, noise_min = 0., noise_max=0.3, glimpses=True):
+    def train_images_labels_batch(self, image_raw, label, noise_min = 0.,
+                                  noise_max=0.3, random_glimpses=True):
         """
         Returns: batch of images and labels to train on.
         """
@@ -261,21 +272,24 @@ class Dataset_TFRecords(object):
         # Generate batch
         images, labels = tf.train.shuffle_batch([image, label],
                                                 batch_size=self.flags.batch_size,
-                                                capacity=50000,
-                                                num_threads=16,
+                                                capacity=100000,
+                                                num_threads=32,
                                                 min_after_dequeue=10000,
                                                 # shapes=image.shape,
                                                 name='shuffle_batch')
-        # extract glimpses from training batch
-        if glimpses:
+        # # extract glimpses from training batch
+        if random_glimpses:
+            images = self._getGlimpses(images, random=True)
+        else:
             images = self._getGlimpses(images)
 
         # Display the training images in the visualizer.
         # display_images = tf.image.grayscale_to_rgb(images)
-        tf.summary.image('Train_Images', images, max_outputs=6)
+        tf.summary.image('Train_Images', images, max_outputs=3)
         return images, labels
 
-    def eval_images_labels_batch(self, image_raw, label, noise_min=0., noise_max=0.3, glimpses=True):
+    def eval_images_labels_batch(self, image_raw, label, noise_min=0., noise_max=0.3,
+                                 random_glimpses=False):
         """
         Returns: batch of images and labels to test on.
         """
@@ -287,14 +301,16 @@ class Dataset_TFRecords(object):
         images, labels = tf.train.shuffle_batch([image, label],
                                                 batch_size=self.flags.batch_size,
                                                 capacity=50000,
-                                                num_threads=16,
-                                                min_after_dequeue=10000,
+                                                num_threads=32,
+                                                min_after_dequeue=1000,
                                                 name='shuffle_batch')
 
-        # extract glimpses from evaluation batch
-        if glimpses:
-            images = self._getGlimpses(images)
+        #extract glimpses from evaluation batch
+        if random_glimpses:
+            images = self._getGlimpses(images, random=True)
+        else:
+            images = self._getGlimpses(images, random=False)
 
         # Display the training images in the visualizer.
-        tf.summary.image('Test_Images', images, max_outputs=10)
+        tf.summary.image('Test_Images', images, max_outputs=3)
         return images, labels
