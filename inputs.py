@@ -73,106 +73,106 @@ class Dataset_Constant(object):
         tf.summary.image('Test_Images', images, max_outputs=10)
         return images, labels
 
-# class Dataset_Variable(object):
-#     """
-#     Handles training and evaluation data operations.  \n
-#     Data is preloaded as tensor variables and must be initialized in a session.
-#     """
-#
-#     def __init__(self, images, labels, flags, dtype_images=dtypes.float32, dtype_labels=dtypes.int32):
-#         """
-#         Args:
-#             images: string, path to 4d numpy array of images.
-#             labels: string, path to 2d numpy array of labels.
-#             flags: TensorFlow.app.Flags
-#             dtype_images: optional, default tensorflow.dtypes.float32
-#             dtype_labels: optional, default tensorflow.dtypes.int32
-#         """
-#
-#         self.images_path = images
-#         self.labels_path = labels
-#         # Read training data to get properties then remove from memory.
-#         images_arr = np.load(images)
-#         labels_arr = np.load(labels)
-#         self.num_examples = images_arr.shape[0]
-#         self.width, self.height, self.channels = images_arr.shape[1:]
-#         labels_shape = labels_arr.shape
-#         del images_arr, labels_arr
-#
-#         # Create placeholders for the training data to be initialized outside of the class.
-#         self.images_init = tf.placeholder(
-#             dtype=dtype_images,
-#             shape=(self.num_examples,self.width,self.height,self.channels))
-#         self.labels_init = tf.placeholder(dtype=dtype_labels,shape=labels_shape)
-#         self.images = tf.Variable(self.images_init, trainable=False, collections=[])
-#         self.labels = tf.Variable(self.labels_init, trainable=False, collections=[])
-#         assert self.images.shape[0] == self.labels.shape[0], \
-#             ('images.shape: %s labels.shape: %s' % (self.images.shape, self.labels.shape))
-#         self.flags = flags
-#
-#     @property
-#     def initializers(self):
-#         """
-#
-#         Returns: Placeholders to initialize the training data.
-#
-#         """
-#         return (self.images_init, self.labels_init)
-#
-#     @property
-#     def image_data(self):
-#         return np.load(self.images_path)
-#
-#     @property
-#     def label_data(self):
-#         return np.load(self.labels_path)
-#
-#     @classmethod
-#     def _distort(self, image):
-#         random = bool(np.random.randint(0, 1))
-#
-#         if random:
-#             distorted_image = tf.image.random_brightness(image,
-#                                                          max_delta=0.5)
-#             distorted_image = tf.image.random_contrast(distorted_image,
-#                                                        lower=0.2, upper=1.)
-#         else:
-#             distorted_image = tf.image.random_contrast(image,
-#                                                        lower=0.2, upper=1.)
-#             distorted_image = tf.image.random_brightness(distorted_image,
-#                                                          max_delta=0.5)
-#
-#         image = tf.image.per_image_standardization(distorted_image)
-#         return distorted_image
-#
-#     def train_image_label_batch(self):
-#         """
-#         Generate examples to train on.
-#         :param batch_size:
-#         :return:
-#         """
-#         image_raw,label = tf.train.slice_input_producer([self.images,self.labels],
-#                                                       num_epochs=self.flags.num_epochs)
-#         image = self._distort(image_raw)
-#         images, labels = tf.train.batch([image,label],self.flags.batch_size,num_threads=16)
-#
-#         # Display the training images in the visualizer.
-#         tf.summary.image('Train_Images', images)
-#         return images, labels
-#
-#     def eval_image_label_batch(self):
-#         """
-#         Generate examples to train on.
-#         :param batch_size:
-#         :return:
-#         """
-#         image_raw,label = tf.train.slice_input_producer([self.images,self.labels],shuffle=False)
-#         image = tf.image.per_image_standardization(image_raw)
-#         images, labels = tf.train.batch([image,label],self.flags.batch_size,num_threads=16)
-#
-#         # Display the training images in the visualizer.
-#         tf.summary.image('Test_Images', images)
-#         return images, labels
+class Dataset_Variable(object):
+    """
+    Handles training and evaluation data operations.  \n
+    Data is preloaded as tensor variables and must be initialized in a session.
+    """
+
+    def __init__(self, images, labels, flags, dtype_images=dtypes.float32, dtype_labels=dtypes.int32):
+        """
+        Args:
+            images: string, path to 4d numpy array of images.
+            labels: string, path to 2d numpy array of labels.
+            flags: TensorFlow.app.Flags
+            dtype_images: optional, default tensorflow.dtypes.float32
+            dtype_labels: optional, default tensorflow.dtypes.int32
+        """
+
+        self.images_path = images
+        self.labels_path = labels
+        # Read training data to get properties then remove from memory.
+        images_arr = np.load(images)
+        labels_arr = np.load(labels)
+        self.num_examples = images_arr.shape[0]
+        self.width, self.height, self.channels = images_arr.shape[1:]
+        labels_shape = labels_arr.shape
+        del images_arr, labels_arr
+
+        # Create placeholders for the training data to be initialized outside of the class.
+        self.images_init = tf.placeholder(
+            dtype=dtype_images,
+            shape=(self.num_examples,self.width,self.height,self.channels))
+        self.labels_init = tf.placeholder(dtype=dtype_labels,shape=labels_shape)
+        self.images = tf.Variable(self.images_init, trainable=False, collections=[])
+        self.labels = tf.Variable(self.labels_init, trainable=False, collections=[])
+        assert self.images.shape[0] == self.labels.shape[0], \
+            ('images.shape: %s labels.shape: %s' % (self.images.shape, self.labels.shape))
+        self.flags = flags
+
+    @property
+    def initializers(self):
+        """
+
+        Returns: Placeholders to initialize the training data.
+
+        """
+        return (self.images_init, self.labels_init)
+
+    @property
+    def image_data(self):
+        return np.load(self.images_path)
+
+    @property
+    def label_data(self):
+        return np.load(self.labels_path)
+
+    @classmethod
+    def _distort(self, image):
+        random = bool(np.random.randint(0, 1))
+
+        if random:
+            distorted_image = tf.image.random_brightness(image,
+                                                         max_delta=0.5)
+            distorted_image = tf.image.random_contrast(distorted_image,
+                                                       lower=0.2, upper=1.)
+        else:
+            distorted_image = tf.image.random_contrast(image,
+                                                       lower=0.2, upper=1.)
+            distorted_image = tf.image.random_brightness(distorted_image,
+                                                         max_delta=0.5)
+
+        image = tf.image.per_image_standardization(distorted_image)
+        return distorted_image
+
+    def train_image_label_batch(self):
+        """
+        Generate examples to train on.
+        :param batch_size:
+        :return:
+        """
+        image_raw,label = tf.train.slice_input_producer([self.images,self.labels],
+                                                      num_epochs=self.flags.num_epochs)
+        image = self._distort(image_raw)
+        images, labels = tf.train.batch([image,label],self.flags.batch_size,num_threads=16)
+
+        # Display the training images in the visualizer.
+        tf.summary.image('Train_Images', images)
+        return images, labels
+
+    def eval_image_label_batch(self):
+        """
+        Generate examples to train on.
+        :param batch_size:
+        :return:
+        """
+        image_raw,label = tf.train.slice_input_producer([self.images,self.labels],shuffle=False)
+        image = tf.image.per_image_standardization(image_raw)
+        images, labels = tf.train.batch([image,label],self.flags.batch_size,num_threads=16)
+
+        # Display the training images in the visualizer.
+        tf.summary.image('Test_Images', images)
+        return images, labels
 
 class Dataset_TFRecords(object):
     """
