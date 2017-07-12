@@ -20,7 +20,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 tf.app.flags.DEFINE_integer('log_frequency', 10,
                             """How often to log results to the console.""")
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 32,
+tf.app.flags.DEFINE_integer('batch_size', 128,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_epochs', 1000000,
                             """Number of Data Epochs to do training""")
@@ -30,15 +30,15 @@ tf.app.flags.DEFINE_integer('NUM_EXAMPLES_PER_EPOCH', 50000,
 # Basic parameters describing the data set.
 tf.app.flags.DEFINE_integer('NUM_CLASSES', 27,
                             """Number of classes in training/evaluation data.""")
-tf.app.flags.DEFINE_integer('IMAGE_HEIGHT', 85,
+tf.app.flags.DEFINE_integer('IMAGE_HEIGHT',85,
                             """IMAGE HEIGHT""")
-tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 120,
+tf.app.flags.DEFINE_integer('IMAGE_WIDTH',120,
                             """IMAGE WIDTH""")
 tf.app.flags.DEFINE_integer('IMAGE_DEPTH', 1,
                             """IMAGE DEPTH""")
-tf.app.flags.DEFINE_integer('CROP_HEIGHT', 58,
+tf.app.flags.DEFINE_integer('CROP_HEIGHT',56,
                             """CROP HEIGHT""")
-tf.app.flags.DEFINE_integer('CROP_WIDTH', 79,
+tf.app.flags.DEFINE_integer('CROP_WIDTH', 76,
                             """CROP WIDTH""")
 
 def train():
@@ -57,15 +57,15 @@ def train():
         with tf.variable_scope('Input') as scope:
             # Add queue runner to the graph
             filename_queue = tf.train.string_input_producer(['../multi_slice_GP_training/'+
-                                                             'oxide_tilts_GP_train_171x240_3deg.tfrecords'],
+                                                             'oxide_tilts_GP_train_171x240_bin2.tfrecords'],
                                                             num_epochs=FLAGS.num_epochs)
             # pass the filename_queue to the input class to decode
             dset = inputs.Dataset_TFRecords(filename_queue,FLAGS)
             image, label = dset.decode_image_label()
 
             # distort images and generate examples batch
-            images, labels = dset.train_images_labels_batch(image, label, noise_min=0.0,
-                                                            noise_max=0.25,
+            images, labels = dset.train_images_labels_batch(image, label, noise_min=0.05,
+                                                            noise_max=0.15,
                                                             random_glimpses=True)
 
 

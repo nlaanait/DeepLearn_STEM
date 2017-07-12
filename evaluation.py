@@ -25,7 +25,7 @@ tf.app.flags.DEFINE_boolean('run_once', True,
                             """Whether to run eval only once.""")
 
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 256,
+tf.app.flags.DEFINE_integer('batch_size', 128,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_epochs', 1000000,
                             """Number of Data Epochs to do training""")
