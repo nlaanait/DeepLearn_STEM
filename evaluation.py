@@ -25,7 +25,7 @@ tf.app.flags.DEFINE_boolean('run_once', True,
                             """Whether to run eval only once.""")
 
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 128,
+tf.app.flags.DEFINE_integer('batch_size', 256,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_epochs', 1000000,
                             """Number of Data Epochs to do training""")
@@ -129,7 +129,7 @@ def evaluate():
       with tf.variable_scope('Input_test') as scope:
           # Add queue runner to the graph
           filename_queue = tf.train.string_input_producer(['../multi_slice_GP_training/'+
-                                                           'oxide_tilts_GP_test_171x240_3deg.tfrecords'])
+                                                           'oxide_tilts_GP_test_171x240_bin2.tfrecords'])
                                                           # num_epochs=FLAGS.num_epochs)
           # pass the filename_queue to the input class to decode
           dset = inputs.Dataset_TFRecords(filename_queue, FLAGS)
