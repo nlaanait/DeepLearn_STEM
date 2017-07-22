@@ -19,15 +19,15 @@ tf.app.flags.DEFINE_string('checkpoint_dir', os.path.join(os.getcwd(),'train'),
                            """Directory where to read model checkpoints.""")
 tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
                             """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 50000,
+tf.app.flags.DEFINE_integer('num_examples', 100000,
                             """Number of examples to run.""")
 tf.app.flags.DEFINE_boolean('run_once', True,
                             """Whether to run eval only once.""")
 
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 256,
+tf.app.flags.DEFINE_integer('batch_size', 64,
                             """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('num_epochs', 1000000,
+tf.app.flags.DEFINE_integer('num_epochs', 50000,
                             """Number of Data Epochs to do training""")
 
 
@@ -40,9 +40,9 @@ tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 120,
                             """IMAGE WIDTH""")
 tf.app.flags.DEFINE_integer('IMAGE_DEPTH', 1,
                             """IMAGE DEPTH""")
-tf.app.flags.DEFINE_integer('CROP_HEIGHT', 58,
+tf.app.flags.DEFINE_integer('CROP_HEIGHT', 60,
                             """CROP HEIGHT""")
-tf.app.flags.DEFINE_integer('CROP_WIDTH', 79,
+tf.app.flags.DEFINE_integer('CROP_WIDTH', 80,
                             """CROP WIDTH""")
 
 # Basic training/evaluation data parameters Global constants describing the data set.
@@ -109,7 +109,7 @@ def eval_once(saver, summary_writer, top_k_op, categories, summary_op):
       precision_per_catg = sorted_predictions/step
       dic = dict([(catg, np.round(prec,2)) for catg, prec in zip(categories,precision_per_catg)])
       print('%s: precision per class @ 1' % datetime.now())
-      for key in dic.iterkeys():
+      for key in dic.keys():
           print("%s : %2.2f"%(key,dic[key]))
 
       summary = tf.Summary()
@@ -129,15 +129,15 @@ def evaluate():
       with tf.variable_scope('Input_test') as scope:
           # Add queue runner to the graph
           filename_queue = tf.train.string_input_producer(['../multi_slice_GP_training/'+
-                                                           'oxide_tilts_GP_test_171x240_bin2.tfrecords'])
+                                                           'oxide_pertiltpattern_GP_test_85x120.tfrecords'])
                                                           # num_epochs=FLAGS.num_epochs)
           # pass the filename_queue to the input class to decode
           dset = inputs.Dataset_TFRecords(filename_queue, FLAGS)
           image, label = dset.decode_image_label()
 
           # distort images and generate examples batch
-          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.01, noise_max=0.05,
-                                                         random_glimpses=True)
+          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.02, noise_max=0.25,
+                                                         random_glimpses=False,geometric=True)
 
       # Build a Graph that computes the logits predictions from the inference model.
       logits = network.inference(images, FLAGS)

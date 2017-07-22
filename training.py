@@ -20,7 +20,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 tf.app.flags.DEFINE_integer('log_frequency', 10,
                             """How often to log results to the console.""")
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 96,
+tf.app.flags.DEFINE_integer('batch_size', 64,
                             """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('num_epochs', 1000000,
                             """Number of Data Epochs to do training""")
@@ -36,9 +36,9 @@ tf.app.flags.DEFINE_integer('IMAGE_WIDTH', 120,
                             """IMAGE WIDTH""")
 tf.app.flags.DEFINE_integer('IMAGE_DEPTH', 1,
                             """IMAGE DEPTH""")
-tf.app.flags.DEFINE_integer('CROP_HEIGHT', 58,
+tf.app.flags.DEFINE_integer('CROP_HEIGHT', 60,
                             """CROP HEIGHT""")
-tf.app.flags.DEFINE_integer('CROP_WIDTH', 79,
+tf.app.flags.DEFINE_integer('CROP_WIDTH', 80,
                             """CROP WIDTH""")
 
 def train():
@@ -57,16 +57,16 @@ def train():
         with tf.variable_scope('Input') as scope:
             # Add queue runner to the graph
             filename_queue = tf.train.string_input_producer(['../multi_slice_GP_training/'+
-                                                             'oxide_tilts_GP_train_171x240_3deg.tfrecords'],
+                                                             'oxide_pertiltpattern_GP_train_85x120.tfrecords'],
                                                             num_epochs=FLAGS.num_epochs)
             # pass the filename_queue to the input class to decode
             dset = inputs.Dataset_TFRecords(filename_queue,FLAGS)
             image, label = dset.decode_image_label()
 
             # distort images and generate examples batch
-            images, labels = dset.train_images_labels_batch(image, label, noise_min=0.0,
-                                                            noise_max=0.1,
-                                                            random_glimpses=True)
+            images, labels = dset.train_images_labels_batch(image, label, noise_min=0.02,
+                                                            noise_max=0.25,
+                                                            random_glimpses=False, geometric=True)
 
 
         # Build a Graph that computes the logits predictions from the
