@@ -202,8 +202,8 @@ class Dataset_TFRecords(object):
             # scale_X = np.random.uniform(low =scale_low, high=scale_high,size=1)
             # scale_Y = np.random.uniform(low =scale_low, high=scale_high,size=1)
             # angle_low, angle_high = np.deg2rad([-0.5, 0.5])
-            theta_angle = np.random.normal(0., 0.05, size=1)
-            nu_angle = np.random.normal(0.,0.05, size=1)
+            theta_angle = np.random.normal(0., 0.03, size=1)
+            nu_angle = np.random.normal(0.,0.03, size=1)
             # theta_angle = np.random.normal(low =angle_low, high=angle_high,size=1)
             # nu_angle = np.random.uniform(low =angle_low, high=angle_high,size=1)
             # Constructing transfomation matrix
@@ -217,7 +217,8 @@ class Dataset_TFRecords(object):
             c_0 = 0.
             c_1 = 0.
             affine_transform = tf.constant(np.array([a_0,a_1,a_2,b_0,b_1,b_2,c_0,c_1]).flatten(),dtype=tf.float32)
-            geo_image = tf.contrib.image.transform(tf.cast(image, dtype=tf.float32),affine_transform, interpolation='BILINEAR')
+            geo_image = tf.contrib.image.transform(tf.cast(image, dtype=tf.float32),affine_transform,
+                                                   interpolation='BILINEAR')
             geo_image = tf.image.per_image_standardization(geo_image)
 
         # Apply random noising and image flipping
@@ -232,7 +233,7 @@ class Dataset_TFRecords(object):
 
         return distorted_image
 
-    def _getGlimpses(self, batch_images, random=False):
+    def _getGlimpses(self, batch_images, **kwargs):
         """
         Get bounded glimpses from images, corresponding to ~ 2x1 supercell
         :param batch_images: batch of training images
@@ -240,18 +241,26 @@ class Dataset_TFRecords(object):
         """
         # set size of glimpses
         y_size, x_size = self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH
-        crop_y_size, crop_x_size  = self.flags.CROP_HEIGHT,self.flags.CROP_WIDTH
+        crop_y_size, crop_x_size = self.flags.CROP_HEIGHT,self.flags.CROP_WIDTH
         size = tf.constant(value=[crop_y_size, crop_x_size],
                            dtype=tf.int32)
+        random = kwargs.get('random',False)
 
-        if random:
-            # generate random window centers for the batch with overlap with input
+        if random is 'uniform':
+            # generate uniform random window centers for the batch with overlap with input
             y_low, y_high = int(crop_y_size/2), int(y_size - crop_y_size/2)
             x_low, x_high = int(crop_x_size/2), int(x_size - crop_x_size/2)
             cen_y = tf.random_uniform([self.flags.batch_size], minval = y_low, maxval=y_high)
             cen_x = tf.random_uniform([self.flags.batch_size], minval=x_low, maxval=x_high)
             offsets = tf.stack([cen_y,cen_x],axis=1)
-        else:
+
+        if random is 'normal':
+            # generate normal random window centers for the batch with overlap with input
+            cen_y = tf.random_normal([self.flags.batch_size], mean=38, stddev=5.)
+            cen_x = tf.random_normal([self.flags.batch_size], mean=70, stddev=5.)
+            offsets = tf.stack([cen_y,cen_x],axis=1)
+
+        if not random:
             # fixed crop
             cen_y = np.ones((self.flags.batch_size,),dtype=np.int32)*40
             cen_x = np.ones((self.flags.batch_size,), dtype=np.int32) * 70
@@ -263,8 +272,6 @@ class Dataset_TFRecords(object):
                                                  normalized=False,
                                                  uniform_noise=False,
                                                  name='batch_glimpses')
-        # print(glimpse_batch.shape)
-
         return glimpse_batch
 
     def decode_image_label(self):
@@ -287,10 +294,9 @@ class Dataset_TFRecords(object):
         image = tf.decode_raw(features['image_raw'], tf.float16)
         image.set_shape([self.flags.IMAGE_HEIGHT * self.flags.IMAGE_WIDTH * self.flags.IMAGE_DEPTH])
         image = tf.reshape(image, [self.flags.IMAGE_HEIGHT, self.flags.IMAGE_WIDTH, self.flags.IMAGE_DEPTH])
-        print(label.shape)
         return image, label
 
-    def train_images_labels_batch(self, image_raw, label, noise_min = 0.,
+    def train_images_labels_batch(self, image_raw, label, noise_min=0.,
                                   noise_max=0.3, random_glimpses=True, geometric=False):
         """
         Returns: batch of images and labels to train on.
@@ -308,14 +314,12 @@ class Dataset_TFRecords(object):
                                                 # shapes=image.shape,
                                                 name='shuffle_batch')
         # # extract glimpses from training batch
-        if random_glimpses:
-            images = self._getGlimpses(images, random=True)
-        else:
-            images = self._getGlimpses(images)
+        images = self._getGlimpses(images, random=random_glimpses)
+
 
         # Display the training images in the visualizer.
-        # display_images = tf.image.grayscale_to_rgb(images)
-        tf.summary.image('Train_Images', images, max_outputs=3)
+        display_images = tf.image.grayscale_to_rgb(images)
+        tf.summary.image('Train_Images', display_images, max_outputs=3)
         return images, labels
 
     def eval_images_labels_batch(self, image_raw, label, noise_min=0., noise_max=0.3,
@@ -336,10 +340,7 @@ class Dataset_TFRecords(object):
                                                 name='shuffle_batch')
 
         #extract glimpses from evaluation batch
-        if random_glimpses:
-            images = self._getGlimpses(images, random=True)
-        else:
-            images = self._getGlimpses(images, random=False)
+        images = self._getGlimpses(images, random=random_glimpses)
 
         # Display the training images in the visualizer.
         tf.summary.image('Test_Images', images, max_outputs=3)

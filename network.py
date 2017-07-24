@@ -6,8 +6,8 @@ import numpy as np
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999    # The decay to use for the moving average.
 NUM_EPOCHS_PER_DECAY = 40   # Epochs after which learning rate decays.
-LEARNING_RATE_DECAY_FACTOR = 0.75 # Learning rate decay factor.
-INITIAL_LEARNING_RATE = 0.7  # Initial learning rate.
+LEARNING_RATE_DECAY_FACTOR = 0.25 # Learning rate decay factor.
+INITIAL_LEARNING_RATE = 0.4  # Initial learning rate.
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -291,7 +291,7 @@ def inference(images, FLAGS):
         _activation_image_summary(pool3)
 
     # RELU3 w/ dropout
-    with tf.variable_scope('RELU3_dropout') as scope:
+    with tf.variable_scope('RELU3') as scope:
         # Move everything into depth so we can perform a single matrix multiply.
         reshape = tf.reshape(pool3, [FLAGS.batch_size, -1])
 
@@ -300,10 +300,23 @@ def inference(images, FLAGS):
                                               stddev=1.e-1, wd=0.001)
         biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
         RELU3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
-        #dropout of neurons
-        keep_prob = tf.constant(2./3, dtype=tf.float32, name="drop_prob")
-        RELU3_dropout = tf.nn.dropout(RELU3, keep_prob)
-        _activation_summary(RELU3_dropout)
+        # #dropout of neurons
+        # keep_prob = tf.constant(2./3, dtype=tf.float32, name="drop_prob")
+        # RELU3_dropout = tf.nn.dropout(RELU3, keep_prob)
+        print('Fully connected %s shape: %s' % (scope.name, RELU3.shape))
+        _activation_summary(RELU3)
+
+    # RELU 4
+    with tf.variable_scope('RELU4_dropout') as scope:
+        weights = _variable_with_weight_decay('weights', shape=[512, 512],
+                                              stddev=1.e-1, wd=1.e-3)
+        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
+        RELU4 = tf.nn.relu(tf.matmul(RELU3, weights) + biases, name=scope.name)
+        # dropout of neurons
+        keep_prob = tf.constant(2. / 3, dtype=tf.float32, name="drop_prob")
+        RELU4_dropout = tf.nn.dropout(RELU4, keep_prob)
+        print('Fully connected %s shape: %s'%(scope.name, RELU4_dropout.shape))
+        _activation_summary(RELU4_dropout)
 
     # softmax linear
     with tf.variable_scope('softmax_linear') as scope:
@@ -316,7 +329,7 @@ def inference(images, FLAGS):
                                               stddev=1.e-2, wd=0.0)
         biases = _variable_on_cpu('biases', [FLAGS.NUM_CLASSES],
                                   tf.constant_initializer(0.0))
-        softmax_linear = tf.add(tf.matmul(RELU3_dropout, weights), biases, name=scope.name)
+        softmax_linear = tf.add(tf.matmul(RELU4_dropout, weights), biases, name=scope.name)
         _activation_summary(softmax_linear)
 
     return softmax_linear

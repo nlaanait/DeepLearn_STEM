@@ -66,7 +66,7 @@ def train():
             # distort images and generate examples batch
             images, labels = dset.train_images_labels_batch(image, label, noise_min=0.02,
                                                             noise_max=0.25,
-                                                            random_glimpses=False, geometric=True)
+                                                            random_glimpses='normal', geometric=False)
 
 
         # Build a Graph that computes the logits predictions from the

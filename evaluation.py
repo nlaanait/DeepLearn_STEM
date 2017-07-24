@@ -50,13 +50,14 @@ tf.app.flags.DEFINE_integer('NUM_EXAMPLES_PER_EPOCH', 50000,
                             """Number of classes in training/evaluation data.""")
 
 
-def eval_once(saver, summary_writer, top_k_op, categories, summary_op):
+def eval_once(saver, summary_writer, top_1_op, top_5_op, categories, summary_op):
   """Run Eval once.
 
   Args:
     saver: Saver.
     summary_writer: Summary writer.
-    top_k_op: Top K op.
+    top_1_op: Top 1 op.
+    top_5_op: Top 5 op.
     summary_op: Summary op.
     categories: classes in batch.
   """
@@ -82,39 +83,51 @@ def eval_once(saver, summary_writer, top_k_op, categories, summary_op):
                                          start=True))
 
       num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
-      true_count = 0  # Counts the number of correct predictions.
+      true_count_1 = 0  # Counts the number of correct predictions.
+      true_count_5 = 0
       total_sample_count = num_iter * FLAGS.batch_size
       step = 0
-      sorted_predictions = np.zeros(shape=(FLAGS.NUM_CLASSES,))
+      sorted_predictions_1 = np.zeros(shape=(FLAGS.NUM_CLASSES,))
+      sorted_predictions_5 = np.zeros(shape=(FLAGS.NUM_CLASSES,))
       while step < num_iter and not coord.should_stop():
         # sum up all predictions regardless of class
-        predictions = np.array(sess.run([top_k_op])).flatten()
-        true_count += np.sum(predictions)
+        predictions_1 = np.array(sess.run([top_1_op])).flatten()
+        predictions_5 = np.array(sess.run([top_5_op])).flatten()
+        true_count_1 += np.sum(predictions_1)
+        true_count_5 += np.sum(predictions_5)
         # sum up predictions per class
         classes = np.array(sess.run([categories])).flatten()
         uniq_cls, uniq_indx, uniq_cts = np.unique(classes, return_index=True, return_counts=True)
-        zeroes = np.zeros_like(sorted_predictions)
-        zeroes[uniq_cls] = predictions[uniq_indx]
-        sorted_predictions += zeroes
+        zeroes_1 = np.zeros_like(sorted_predictions_1)
+        zeroes_1[uniq_cls] = predictions_1[uniq_indx]
+        sorted_predictions_1 += zeroes_1
+        zeroes_5 = np.zeros_like(sorted_predictions_5)
+        zeroes_5[uniq_cls] = predictions_5[uniq_indx]
+        sorted_predictions_5 += zeroes_5
         # increment step
         step += 1
 
       # Compute precision @ 1.
-      precision = true_count / total_sample_count
-      print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
+      precision_1 = true_count_1 / total_sample_count
+      precision_5 = true_count_5 / total_sample_count
+      print('%s: precision @ 1 = %.3f' % (datetime.now(), precision_1))
+      print('%s: precision @ 5 = %.3f' % (datetime.now(), precision_5))
 
       # Load class names and compute precision per class
       tilt_patterns = np.load('../multi_slice_GP_arrays/tilt_patterns_GP.npy')
       categories = np.unique(tilt_patterns)
-      precision_per_catg = sorted_predictions/step
-      dic = dict([(catg, np.round(prec,2)) for catg, prec in zip(categories,precision_per_catg)])
+      precision_per_catg_1 = sorted_predictions_1/step
+      precision_per_catg_5 = sorted_predictions_5 / step
+      dic = dict([(catg, (np.round(prec_1,3),np.round(prec_5,2)))
+                  for catg, prec_1, prec_5 in zip(categories,precision_per_catg_1,precision_per_catg_5)])
       print('%s: precision per class @ 1' % datetime.now())
       for key in dic.keys():
-          print("%s : %2.2f"%(key,dic[key]))
+          print("%s : top_1: %.3f, top_5: %.3f"%(key,dic[key][0], dic[key][1]))
 
       summary = tf.Summary()
       summary.ParseFromString(sess.run(summary_op))
-      summary.value.add(tag='Precision @ 1', simple_value=precision)
+      summary.value.add(tag='Precision @ 1', simple_value=precision_1)
+      summary.value.add(tag='Precision @ 5', simple_value=precision_5)
       summary_writer.add_summary(summary, global_step)
     except Exception as e:  # pylint: disable=broad-except
       coord.request_stop(e)
@@ -136,8 +149,10 @@ def evaluate():
           image, label = dset.decode_image_label()
 
           # distort images and generate examples batch
-          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.02, noise_max=0.25,
-                                                         random_glimpses=False,geometric=True)
+          images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.02, noise_max=0.2,
+                                                         random_glimpses=False,geometric=False)
+
+
 
       # Build a Graph that computes the logits predictions from the inference model.
       logits = network.inference(images, FLAGS)
@@ -149,7 +164,8 @@ def evaluate():
       # categories = tf.argmax(labels, axis=0)
 
       # Calculate predictions.
-      in_top_k_op = tf.nn.in_top_k(logits, labels, 1)
+      in_top_1_op = tf.nn.in_top_k(logits, labels, 1)
+      in_top_5_op = tf.nn.in_top_k(logits, labels, 5)
       # top_k_op = tf.nn.top_k(logits,labels)
 
       # Restore the moving average version of the learned variables for eval.
@@ -164,7 +180,8 @@ def evaluate():
       summary_writer = tf.summary.FileWriter(FLAGS.eval_dir, g)
 
       while True:
-        eval_once(saver, summary_writer, tf.cast(in_top_k_op,tf.float32), labels, summary_op)
+        eval_once(saver, summary_writer, tf.cast(in_top_1_op,tf.float32), tf.cast(in_top_5_op,tf.float32),
+                  labels, summary_op)
         if FLAGS.run_once:
             break
       time.sleep(FLAGS.eval_interval_secs)
