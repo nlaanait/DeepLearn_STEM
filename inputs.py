@@ -197,13 +197,13 @@ class Dataset_TFRecords(object):
         if geometric:
             # Setting bounds and generating random values for scaling and rotations
             # scale_low, scale_high = 1.0 , 1.0
-            scale_X = np.random.normal(1.0, 0.02,size=1)
-            scale_Y = np.random.normal(1.0, 0.02, size=1)
+            scale_X = np.random.normal(1.0, 0.01,size=1)
+            scale_Y = np.random.normal(1.0, 0.01, size=1)
             # scale_X = np.random.uniform(low =scale_low, high=scale_high,size=1)
             # scale_Y = np.random.uniform(low =scale_low, high=scale_high,size=1)
             # angle_low, angle_high = np.deg2rad([-0.5, 0.5])
-            theta_angle = np.random.normal(0., 0.03, size=1)
-            nu_angle = np.random.normal(0.,0.03, size=1)
+            theta_angle = np.random.normal(0., 0.015, size=1)
+            nu_angle = np.random.normal(0.,0.015, size=1)
             # theta_angle = np.random.normal(low =angle_low, high=angle_high,size=1)
             # nu_angle = np.random.uniform(low =angle_low, high=angle_high,size=1)
             # Constructing transfomation matrix
@@ -256,8 +256,8 @@ class Dataset_TFRecords(object):
 
         if random is 'normal':
             # generate normal random window centers for the batch with overlap with input
-            cen_y = tf.random_normal([self.flags.batch_size], mean=38, stddev=5.)
-            cen_x = tf.random_normal([self.flags.batch_size], mean=70, stddev=5.)
+            cen_y = tf.random_normal([self.flags.batch_size], mean=38, stddev=2.5)
+            cen_x = tf.random_normal([self.flags.batch_size], mean=70, stddev=2.5)
             offsets = tf.stack([cen_y,cen_x],axis=1)
 
         if not random:
@@ -311,9 +311,9 @@ class Dataset_TFRecords(object):
                                                 capacity=100000,
                                                 num_threads=32,
                                                 min_after_dequeue=10000,
-                                                # shapes=image.shape,
                                                 name='shuffle_batch')
-        # # extract glimpses from training batch
+
+        # Extract glimpses from training batch
         images = self._getGlimpses(images, random=random_glimpses)
 
 
@@ -334,9 +334,9 @@ class Dataset_TFRecords(object):
         # Generate batch
         images, labels = tf.train.shuffle_batch([image, label],
                                                 batch_size=self.flags.batch_size,
-                                                capacity=50000,
+                                                capacity=100000,
                                                 num_threads=32,
-                                                min_after_dequeue=1000,
+                                                min_after_dequeue=10000,
                                                 name='shuffle_batch')
 
         #extract glimpses from evaluation batch

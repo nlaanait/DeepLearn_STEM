@@ -17,7 +17,7 @@ tf.app.flags.DEFINE_string('eval_data', 'test',
                            """Either 'test' or 'train_eval'.""")
 tf.app.flags.DEFINE_string('checkpoint_dir', os.path.join(os.getcwd(),'train'),
                            """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
+tf.app.flags.DEFINE_integer('eval_interval_secs', 1,
                             """How often to run the eval.""")
 tf.app.flags.DEFINE_integer('num_examples', 100000,
                             """Number of examples to run.""")
@@ -25,9 +25,9 @@ tf.app.flags.DEFINE_boolean('run_once', True,
                             """Whether to run eval only once.""")
 
 # Basic network parameters.
-tf.app.flags.DEFINE_integer('batch_size', 64,
+tf.app.flags.DEFINE_integer('batch_size', 128,
                             """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_integer('num_epochs', 50000,
+tf.app.flags.DEFINE_integer('num_epochs', 1,
                             """Number of Data Epochs to do training""")
 
 
@@ -46,7 +46,7 @@ tf.app.flags.DEFINE_integer('CROP_WIDTH', 80,
                             """CROP WIDTH""")
 
 # Basic training/evaluation data parameters Global constants describing the data set.
-tf.app.flags.DEFINE_integer('NUM_EXAMPLES_PER_EPOCH', 50000,
+tf.app.flags.DEFINE_integer('NUM_EXAMPLES_PER_EPOCH', 1,
                             """Number of classes in training/evaluation data.""")
 
 
@@ -92,6 +92,7 @@ def eval_once(saver, summary_writer, top_1_op, top_5_op, categories, summary_op)
       while step < num_iter and not coord.should_stop():
         # sum up all predictions regardless of class
         predictions_1 = np.array(sess.run([top_1_op])).flatten()
+        # print("iteration #: %d" %step)
         predictions_5 = np.array(sess.run([top_5_op])).flatten()
         true_count_1 += np.sum(predictions_1)
         true_count_5 += np.sum(predictions_5)
@@ -104,7 +105,6 @@ def eval_once(saver, summary_writer, top_1_op, top_5_op, categories, summary_op)
         zeroes_5 = np.zeros_like(sorted_predictions_5)
         zeroes_5[uniq_cls] = predictions_5[uniq_indx]
         sorted_predictions_5 += zeroes_5
-        # increment step
         step += 1
 
       # Compute precision @ 1.
@@ -116,9 +116,9 @@ def eval_once(saver, summary_writer, top_1_op, top_5_op, categories, summary_op)
       # Load class names and compute precision per class
       tilt_patterns = np.load('../multi_slice_GP_arrays/tilt_patterns_GP.npy')
       categories = np.unique(tilt_patterns)
-      precision_per_catg_1 = sorted_predictions_1/step
+      precision_per_catg_1 = sorted_predictions_1/ step
       precision_per_catg_5 = sorted_predictions_5 / step
-      dic = dict([(catg, (np.round(prec_1,3),np.round(prec_5,2)))
+      dic = dict([(catg, (np.round(prec_1,3),np.round(prec_5,3) ))
                   for catg, prec_1, prec_5 in zip(categories,precision_per_catg_1,precision_per_catg_5)])
       print('%s: precision per class @ 1' % datetime.now())
       for key in dic.keys():
@@ -150,7 +150,7 @@ def evaluate():
 
           # distort images and generate examples batch
           images, labels = dset.eval_images_labels_batch(image, label, noise_min= 0.02, noise_max=0.2,
-                                                         random_glimpses=False,geometric=False)
+                                                         random_glimpses= 'normal',geometric=True)
 
 
 
